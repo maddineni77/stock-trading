@@ -103,6 +103,4 @@ process.on('unhandledRejection', (reason, promise) => {
   console.error('Unhandled Rejection at:', promise, 'reason:', reason);
 });
 // Start server
-app.listen(port, () => {
-  console.log(` Server is running on http://localhost:${port}`);
-});
+module.exports=app
