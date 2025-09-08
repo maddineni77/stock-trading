@@ -79,9 +79,7 @@ mongoose.connection.on('disconnected', () => console.log('MongoDB disconnected')
 mongoose.connection.on('error', (err) => console.error('MongoDB error:', err));
 
 
-app.get("/", (req, res) => {
-  res.send("✅ Backend is running successfully on Vercel!");
-});
+
 
 
 // Core API routes
