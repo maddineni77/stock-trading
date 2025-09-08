@@ -1,17 +1,31 @@
-import { useState, useEffect } from 'react';
-import { stockAPI, userAPI } from '../services/api';
+import { useState, useEffect, useRef } from 'react';
+import { createWebSocketConnection } from '../services/api';
+import { stockAPI, userAPI, transactionAPI } from '../services/api';
 import { formatCurrency, isPositiveNumber, showToast } from '../utils/helpers';
+import TransactionFeed from './TransactionFeed';
 
 const Trading = () => {
   const [activeTab, setActiveTab] = useState('buy');
   const [stocks, setStocks] = useState([]);
   const [userPortfolio, setUserPortfolio] = useState([]);
   const [userBalance, setUserBalance] = useState(0);
+  const pricePollingRef = useRef(null);
+  const userPollingRef = useRef(null);
+  const wsRef = useRef(null);
+  const getCurrentUserId = () => {
+    try {
+      const raw = localStorage.getItem('user');
+      const user = raw ? JSON.parse(raw) : null;
+      return user?._id || user?.userId || user?.id || null;
+    } catch {
+      return null;
+    }
+  };
   const [loading, setLoading] = useState(false);
   
   // Buy form state
   const [buyForm, setBuyForm] = useState({
-    userId: 'user1', // Default user ID - you can make this dynamic
+    userId: getCurrentUserId() || 'user1', // fallback for demo
     stockSymbol: '',
     quantity: '',
     price: ''
@@ -19,7 +33,7 @@ const Trading = () => {
 
   // Sell form state
   const [sellForm, setSellForm] = useState({
-    userId: 'user1', // Default user ID
+    userId: getCurrentUserId() || 'user1', // fallback for demo
     stockSymbol: '',
     quantity: '',
     price: ''
@@ -28,22 +42,53 @@ const Trading = () => {
   useEffect(() => {
     fetchStocks();
     fetchUserData();
+    // start polling for prices every 5s
+    if (pricePollingRef.current) clearInterval(pricePollingRef.current);
+    pricePollingRef.current = setInterval(() => {
+      fetchStocks();
+    }, 5000);
+    // start polling for user data every 10s
+    if (userPollingRef.current) clearInterval(userPollingRef.current);
+    userPollingRef.current = setInterval(() => {
+      fetchUserData();
+    }, 10000);
+    return () => {
+      if (pricePollingRef.current) clearInterval(pricePollingRef.current);
+      if (userPollingRef.current) clearInterval(userPollingRef.current);
+      if (wsRef.current) { try { wsRef.current.close(); } catch {} }
+    };
   }, []);
 
   const fetchStocks = async () => {
     try {
       const response = await stockAPI.getAllStocks();
-      setStocks(response.data || []);
+      const list = response?.data || response || [];
+      setStocks(Array.isArray(list) ? list : []);
+      // bootstrap WebSocket after first stock load
+      if (!wsRef.current) {
+        try {
+          wsRef.current = createWebSocketConnection((payload) => {
+            if (!payload?.symbol) return;
+            setStocks(prev => prev.map(s => s.symbol === payload.symbol ? { ...s, currentPrice: payload.price } : s));
+          });
+        } catch {}
+      }
     } catch (error) {
       console.error('Error fetching stocks:', error);
     }
   };
 
-  const fetchUserData = async (username) => {
+  const fetchUserData = async () => {
     try {
+      const userId = getCurrentUserId();
+      if (!userId) {
+        setUserPortfolio([]);
+        setUserBalance(0);
+        return;
+      }
       const [portfolioResponse, balanceResponse] = await Promise.all([
-        userAPI.getUserPortfolio(username),
-        userAPI.getUserBalance(username)
+        userAPI.getUserPortfolio(userId),
+        userAPI.getUserBalance(userId)
       ]);
       setUserPortfolio(portfolioResponse.data || []);
       setUserBalance(balanceResponse.balance || 0);
@@ -57,11 +102,24 @@ const Trading = () => {
     setLoading(true);
 
     try {
-      const response = await userAPI.buyStock({
-        userId: buyForm.userId,
+      const qty = parseInt(buyForm.quantity);
+      const prc = parseFloat(buyForm.price);
+      // optimistic update
+      setUserBalance(prev => Math.max(0, prev - qty * prc));
+      setUserPortfolio(prev => {
+        const symbol = buyForm.stockSymbol;
+        const existing = prev.find(h => h.stockSymbol === symbol);
+        if (existing) {
+          return prev.map(h => h.stockSymbol === symbol ? { ...h, quantity: (h.quantity || 0) + qty } : h);
+        }
+        return [...prev, { stockSymbol: symbol, quantity: qty, averagePrice: prc }];
+      });
+
+      await transactionAPI.buyStock({
+        userId: getCurrentUserId() || buyForm.userId,
         stockSymbol: buyForm.stockSymbol,
-        quantity: parseInt(buyForm.quantity),
-        price: parseFloat(buyForm.price)
+        quantity: qty,
+        price: prc
       });
 
       showToast('Stock purchased successfully!', 'success');
@@ -79,11 +137,22 @@ const Trading = () => {
     setLoading(true);
 
     try {
-      const response = await userAPI.sellStock({
-        userId: sellForm.userId,
+      const qty = parseInt(sellForm.quantity);
+      const prc = parseFloat(sellForm.price);
+      // optimistic update
+      setUserBalance(prev => prev + qty * prc);
+      setUserPortfolio(prev => {
+        const symbol = sellForm.stockSymbol;
+        return prev
+          .map(h => h.stockSymbol === symbol ? { ...h, quantity: Math.max(0, (h.quantity || 0) - qty) } : h)
+          .filter(h => h.quantity > 0);
+      });
+
+      await transactionAPI.sellStock({
+        userId: getCurrentUserId() || sellForm.userId,
         stockSymbol: sellForm.stockSymbol,
-        quantity: parseInt(sellForm.quantity),
-        price: parseFloat(sellForm.price)
+        quantity: qty,
+        price: prc
       });
 
       showToast('Stock sold successfully!', 'success');
@@ -109,6 +178,17 @@ const Trading = () => {
   const calculateTotalCost = (quantity, price) => {
     if (!isPositiveNumber(quantity) || !isPositiveNumber(price)) return 0;
     return parseFloat(quantity) * parseFloat(price);
+  };
+
+  const canAffordBuy = () => {
+    const total = calculateTotalCost(buyForm.quantity, buyForm.price);
+    return total > 0 && total <= userBalance;
+  };
+
+  const canSellQuantity = () => {
+    const max = getPortfolioHolding(sellForm.stockSymbol);
+    const qty = parseInt(sellForm.quantity || '0');
+    return qty > 0 && qty <= max;
   };
 
   return (
@@ -233,13 +313,18 @@ const Trading = () => {
 
               <button
                 type="submit"
-                disabled={loading || calculateTotalCost(buyForm.quantity, buyForm.price) > userBalance}
+                disabled={loading || !canAffordBuy()}
                 className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={(e) => {
+                  if (!window.confirm(`Confirm buy ${buyForm.quantity} ${buyForm.stockSymbol} @ ${formatCurrency(buyForm.price)}?`)) {
+                    e.preventDefault();
+                  }
+                }}
               >
                 {loading ? 'Processing...' : 'Buy Stock'}
               </button>
 
-              {calculateTotalCost(buyForm.quantity, buyForm.price) > userBalance && (
+              {!canAffordBuy() && buyForm.quantity && buyForm.price && (
                 <p className="text-red-600 text-sm">
                   Insufficient balance. You need {formatCurrency(calculateTotalCost(buyForm.quantity, buyForm.price) - userBalance)} more.
                 </p>
@@ -322,13 +407,18 @@ const Trading = () => {
 
               <button
                 type="submit"
-                disabled={loading || parseInt(sellForm.quantity) > getPortfolioHolding(sellForm.stockSymbol)}
+                disabled={loading || !canSellQuantity()}
                 className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={(e) => {
+                  if (!window.confirm(`Confirm sell ${sellForm.quantity} ${sellForm.stockSymbol} @ ${formatCurrency(sellForm.price)}?`)) {
+                    e.preventDefault();
+                  }
+                }}
               >
                 {loading ? 'Processing...' : 'Sell Stock'}
               </button>
 
-              {parseInt(sellForm.quantity) > getPortfolioHolding(sellForm.stockSymbol) && (
+              {!canSellQuantity() && sellForm.quantity && (
                 <p className="text-red-600 text-sm">
                   You don't have enough shares. You only own {getPortfolioHolding(sellForm.stockSymbol)} shares.
                 </p>
@@ -389,6 +479,9 @@ const Trading = () => {
           </div>
         </div>
       )}
+
+      {/* Transactions Feed */}
+      <TransactionFeed />
     </div>
   );
 };

@@ -70,7 +70,7 @@ const registerUser = async (req, res) => {
         username: newUser.username,
         userType: newUser.userType
       },
-      process.env.JWT_SECRET || 'your_jwt_secret_key',
+      process.env.JWT_SECRET || 'your_jwt_secret_key_change_in_production',
       { expiresIn: '24h' }
     );
 
@@ -105,7 +105,26 @@ const loginUser = async (req, res) => {
       return res.status(400).json({ message: 'Please provide email and password' });
     }
 
-    // Check if user exists
+    // Demo users (fallback for quick testing)
+    if ((email === 'demo@user.com' || email === 'admin@stock.com') && password) {
+      const isAdmin = email === 'admin@stock.com';
+      const demoUser = {
+        _id: isAdmin ? 'admin1' : 'user1',
+        username: isAdmin ? 'DemoAdmin' : 'DemoUser',
+        email,
+        userType: isAdmin ? 'admin' : 'user',
+        balance: 10000,
+        createdAt: new Date()
+      };
+      const token = jwt.sign(
+        { userId: demoUser._id, email: demoUser.email, username: demoUser.username, userType: demoUser.userType },
+        process.env.JWT_SECRET || 'your_jwt_secret_key_change_in_production',
+        { expiresIn: '24h' }
+      );
+      return res.json({ message: 'Login successful', user: demoUser, token });
+    }
+
+    // Check if user exists in DB
     const user = await User.findOne({ email });
     if (!user) {
       return res.status(401).json({ message: 'Invalid credentials' });
@@ -120,7 +139,7 @@ const loginUser = async (req, res) => {
     // Generate JWT token
     const token = jwt.sign(
       { userId: user._id, email: user.email, username: user.username },
-      process.env.JWT_SECRET || 'your_jwt_secret_key',
+      process.env.JWT_SECRET || 'your_jwt_secret_key_change_in_production',
       { expiresIn: '24h' }
     );
 
@@ -228,7 +247,8 @@ const getPortfolio = async (req, res) => {
 // Updated getUserReport function
 const getUserReport = async (req, res) => {
   try {
-    const { userId } = req.query;
+    // Support both route param and query param
+    const userId = req.params.userId || req.query.userId;
     
     if (!userId) {
       return res.status(400).json({ 

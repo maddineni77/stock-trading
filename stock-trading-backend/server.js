@@ -10,7 +10,7 @@ const txnRoutes = require("./routes/txnRoutes");
 const priceRoutes = require("./routes/priceRoutes");
 
 
-const aiController = require('./controllers/aiContoller');
+const aiController = require('./controllers/aiController');
 const stockController = require('./controllers/stockController');
 const { authenticateToken } = require('./middleware/auth');
 
@@ -19,15 +19,27 @@ const port = process.env.PORT || 5001;
 
 
 // CORS configuration
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'http://localhost:5175'
+];
 const corsOptions = {
-  origin: 'http://localhost:5173',
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(null, false);
+  },
   credentials: true,
   optionsSuccessStatus: 200,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin']
 };
 
 app.use(cors(corsOptions));
+// Ensure preflight requests are handled with the same CORS config
+app.options('*', cors(corsOptions));
 
 // Log incoming origins
 app.use((req, res, next) => {
@@ -56,7 +68,8 @@ app.get('/health', (req, res) => {
 });
 
 // MongoDB connection
-mongoose.connect(process.env.MONGODB_URI)
+const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/stock-trading';
+mongoose.connect(mongoURI)
   .then(() => console.log(" MongoDB Connected"))
   .catch((err) => console.error("MongoDB connection error:", err));
 mongoose.connection.on('connected', () => console.log('MongoDB connected'));

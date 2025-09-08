@@ -3,7 +3,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { stockAPI, userAPI } from '../services/api';
 import { formatCurrency, formatDateTime } from '../utils/helpers';
 import { useNavigate } from 'react-router-dom';
-import {calculatePortfolioValue} from '../utils/helpers'
+import {calculatePortfolioValueFromStocks} from '../utils/helpers'
 
 const Dashboard = () => {
   const [dashboardData, setDashboardData] = useState({
@@ -16,31 +16,41 @@ const Dashboard = () => {
   const [recentTrades, setRecentTrades] = useState([]);
   const [marketData, setMarketData] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
     fetchDashboardData();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchDashboardData = async () => {
   setLoading(true);
-  setError(null);
   
   try {
-    // Validate user data
-    const user = JSON.parse(localStorage.getItem('user'));
-    if (!user?._id || !user?.username) {
-      throw new Error('User data incomplete - please login again');
+    // Validate user data (support multiple shapes and avoid throwing)
+    const storedUser = localStorage.getItem('user');
+    let user = null;
+    try {
+      user = storedUser ? JSON.parse(storedUser) : null;
+    } catch (_) {
+      user = null;
+    }
+
+    const userId = user?._id || user?.id;
+    const displayName = user?.username || user?.email || user?.name || '';
+    if (!userId) {
+      setError('Please login to continue');
+      localStorage.removeItem('user');
+      navigate('/login');
+      return;
     }
 
     // Make API requests with error handling for each
     const [balanceResp, reportResp, stocksResp] = await Promise.all([
-      userAPI.getUserBalance(user._id).catch(e => ({ 
+      userAPI.getUserBalance(userId).catch(e => ({ 
         error: e.message || 'Failed to fetch balance',
         success: false 
       })),
-      userAPI.getUserReport(user._id).catch(e => ({
+      userAPI.getUserReport(userId).catch(e => ({
         error: e.message || 'Failed to fetch report', 
         success: false
       })),
@@ -68,7 +78,7 @@ const Dashboard = () => {
     // Update state with proper null checks
     setDashboardData({
       balance: balanceResp.balance || 0,
-      portfolioValue: calculatePortfolioValue(safeStocks), // Implement this function
+      portfolioValue: calculatePortfolioValueFromStocks(safeStocks), // Calculate from stocks array
       totalProfitLoss: reportResp?.totalProfitLoss || 0,
       totalTrades: reportResp?.totalTrades || 0
     });
@@ -81,7 +91,6 @@ const Dashboard = () => {
 
   } catch (error) {
     console.error('Dashboard error:', error);
-    setError(error.message);
     
     // Handle specific error cases
     if (error.message.toLowerCase().includes('authenticated') || 

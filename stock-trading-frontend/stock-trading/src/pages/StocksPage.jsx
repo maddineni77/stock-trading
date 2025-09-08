@@ -1,4 +1,5 @@
-import { useState,useEffect } from 'react';
+import { useState,useEffect, useRef } from 'react';
+import { createWebSocketConnection } from '../services/api';
 import StockRegistration from '../components/StockRegistration';
 import StockHistory from '../components/StockHistory';
 import {  realTimeStockAPI } from '../services/api';
@@ -6,7 +7,17 @@ import StockSearch from '../components/StockSearch';
 const StocksPage = () => {
   const [activeTab, setActiveTab] = useState('history');
   const [realTimeData, setRealTimeData] = useState({});
-const [symbols, setSymbols] = useState(['AAPL', 'GOOGL', 'MSFT']); // Example symbols
+const [symbols, setSymbols] = useState(() => {
+  try {
+    const raw = localStorage.getItem('watchlistSymbols');
+    const list = raw ? JSON.parse(raw) : null;
+    return Array.isArray(list) && list.length ? list : ['AAPL', 'GOOGL', 'MSFT'];
+  } catch {
+    return ['AAPL', 'GOOGL', 'MSFT'];
+  }
+}); // Watchlist symbols
+const pollingRef = useRef(null);
+const wsRef = useRef(null);
 const fetchRealTimeData = async (symbolsList) => {
   try {
     const response = await realTimeStockAPI.getMultipleRealTimeQuotes(symbolsList);
@@ -39,13 +50,48 @@ const fetchRealTimeData = async (symbolsList) => {
 
 const handleSearch = (keyword) => {
   if (keyword) {
-    setSymbols([keyword.toUpperCase()]);
+    const next = [keyword.toUpperCase(), ...symbols.filter(s => s !== keyword.toUpperCase())].slice(0, 10);
+    setSymbols(next);
   }
 };
 
 useEffect(() => {
+  // initial fetch
   fetchRealTimeData(symbols);
+  // start polling every 5 seconds
+  if (pollingRef.current) clearInterval(pollingRef.current);
+  pollingRef.current = setInterval(() => {
+    fetchRealTimeData(symbols);
+  }, 5000);
+  // persist watchlist
+  try { localStorage.setItem('watchlistSymbols', JSON.stringify(symbols)); } catch {}
+  return () => {
+    if (pollingRef.current) clearInterval(pollingRef.current);
+  };
 }, [symbols]);
+
+// Attempt WebSocket live updates with graceful fallback to polling
+useEffect(() => {
+  if (wsRef.current) {
+    try { wsRef.current.close(); } catch {}
+    wsRef.current = null;
+  }
+  try {
+    wsRef.current = createWebSocketConnection((payload) => {
+      // payload expected: { symbol, price, change, changePercent }
+      if (!payload || !payload.symbol) return;
+      setRealTimeData(prev => ({ ...prev, [payload.symbol]: payload }));
+    });
+  } catch {
+    // ignore, polling will continue
+  }
+  return () => {
+    if (wsRef.current) {
+      try { wsRef.current.close(); } catch {}
+      wsRef.current = null;
+    }
+  };
+}, []);
 
 
   return (

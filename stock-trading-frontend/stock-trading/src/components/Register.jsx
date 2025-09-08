@@ -63,20 +63,20 @@ const Register = () => {
       navigate('/login');
     }
   } catch (error) {
-    console.error('Registration error:', error);
+    console.error('Registration error', error);
     
     // Enhanced error handling
     let errorMessage = 'Registration failed';
-    if (error.response) {
+    if (error?.response) {
       // Handle backend validation errors
-      errorMessage = error.response.data.message || errorMessage;
+      errorMessage = error.response.data?.message || errorMessage;
       
       // Specific handling for duplicate user
       if (error.response.status === 400 && 
           errorMessage.includes('already exists')) {
         errorMessage = 'Username or email already in use';
       }
-    } else if (error.request) {
+    } else if (error?.request) {
       // The request was made but no response was received
       errorMessage = 'Cannot connect to server';
     }

@@ -94,4 +94,8 @@ const getUserTransactions = async (req, res) => {
     res.status(500).json({ message: 'Could not fetch transactions', error: err.message });
   }
 };
-module.exports={getUserTransactions,sellStock,buyStock}
+module.exports = {
+  getUserTransactions,
+  sellStock,
+  buyStock
+};

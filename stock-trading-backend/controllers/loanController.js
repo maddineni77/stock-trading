@@ -67,4 +67,8 @@ const getLoanStatus = async (req, res) => {
     res.status(500).json({ message: 'Failed to get loan status', error: err.message });
   }
 };
-module.exports={getLoanStatus,repayLoan,takeLoan}
+module.exports = {
+  getLoanStatus,
+  repayLoan,
+  takeLoan
+};

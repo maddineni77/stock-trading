@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { stockAPI } from '../services/api';
 import { formatCurrency, formatDateTime } from '../utils/helpers';
@@ -13,11 +13,7 @@ const StockHistory = () => {
     fetchStocks();
   }, []);
 
-  useEffect(() => {
-    if (selectedStock) {
-      fetchStockHistory();
-    }
-  }, [selectedStock]);
+  // fetchStockHistory is defined below; the effect that uses it is placed after its definition
 
   const fetchStocks = async () => {
     try {
@@ -28,7 +24,7 @@ const StockHistory = () => {
     }
   };
 
-  const fetchStockHistory = async () => {
+  const fetchStockHistory = useCallback(async () => {
     setLoading(true);
     try {
       const response = await stockAPI.getStockHistory(selectedStock);
@@ -45,7 +41,13 @@ const StockHistory = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedStock]);
+
+  useEffect(() => {
+    if (selectedStock) {
+      fetchStockHistory();
+    }
+  }, [selectedStock, fetchStockHistory]);
 
   const currentPrice = stockHistory.length > 0 ? stockHistory[stockHistory.length - 1]?.price : 0;
   const previousPrice = stockHistory.length > 1 ? stockHistory[stockHistory.length - 2]?.price : 0;

@@ -22,7 +22,7 @@ const AIAssistant = () => {
         timestamp: new Date()
       }]);
     }
-  }, []);
+  }, [messages.length]);
 
   const sendMessage = async () => {
     if (!inputMessage.trim()) return;

@@ -83,6 +83,17 @@ export const calculatePortfolioValue = (holdings, stocks) => {
   }, 0);
 };
 
+// Calculate portfolio value from stocks array (for dashboard)
+export const calculatePortfolioValueFromStocks = (stocks) => {
+  if (!stocks || !Array.isArray(stocks)) return 0;
+  
+  return stocks.reduce((total, stock) => {
+    const currentPrice = stock?.currentPrice || stock?.price || 0;
+    const quantity = stock?.quantity || 0;
+    return total + (quantity * currentPrice);
+  }, 0);
+};
+
 // Calculate profit/loss percentage
 export const calculateProfitLossPercentage = (buyPrice, currentPrice) => {
   return ((currentPrice - buyPrice) / buyPrice) * 100;

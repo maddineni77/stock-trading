@@ -13,20 +13,19 @@ import AdminDashboard from './components/AdminDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
 import AIAssistant from './components/AiAssistant';
 function App() {
-  const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     // Check if user is logged in on app start
     const userData = localStorage.getItem('user');
     if (userData) {
-      setUser(JSON.parse(userData));
+      // User data exists, no need to set state since not used
     }
     setLoading(false);
   }, []);
 
-  const handleLogin = (userData) => {
-    setUser(userData);
+  const handleLogin = () => {
+    // Login handled, no state update needed
   };
 
   if (loading) {

@@ -15,7 +15,7 @@ const LoanManagement = () => {
 
   useEffect(() => {
     fetchUserData();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchUserData = async () => {
     try {
@@ -50,7 +50,7 @@ const LoanManagement = () => {
     }
 
     try {
-      const response = await userAPI.takeLoan(loanForm.userId, loanAmount);
+      await userAPI.takeLoan(loanForm.userId, loanAmount);
       showToast('Loan approved successfully!', 'success');
       setLoanForm({ ...loanForm, amount: '' });
       fetchUserData(); // Refresh user data

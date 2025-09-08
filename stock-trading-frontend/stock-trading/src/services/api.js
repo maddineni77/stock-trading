@@ -301,7 +301,7 @@ export const createWebSocketConnection = (onStockUpdate) => {
 export const aiAPI = {
   sendAIMessage: async (message) => {
     try {
-      const response = await api.post('/api/ai/chat', { message });
+      const response = await api.post('/ai/chat', { message });
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -310,7 +310,7 @@ export const aiAPI = {
 
   analyzePortfolio: async () => {
     try {
-      const response = await api.post('/api/ai/analyze-portfolio');
+      const response = await api.post('/ai/analyze-portfolio');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;

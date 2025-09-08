@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { realTimeStockAPI } from '../services/api';
 
-const StockSearch = ({ onSelectStock, className = "" }) => {
+const StockSearch = ({ onSearch, className = "" }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -55,7 +55,7 @@ const StockSearch = ({ onSelectStock, className = "" }) => {
             <button
               key={index}
               onClick={() => {
-                onSelectStock(stock);
+                onSearch(stock.symbol);
                 setSearchTerm('');
                 setSearchResults([]);
               }}

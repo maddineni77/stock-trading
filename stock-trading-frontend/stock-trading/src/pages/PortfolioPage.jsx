@@ -8,6 +8,15 @@ const PortfolioPage = () => {
   const [stocks, setStocks] = useState([]);
   const [balance, setBalance] = useState(0);
   const [loading, setLoading] = useState(false);
+  const getCurrentUserId = () => {
+    try {
+      const raw = localStorage.getItem('user');
+      const user = raw ? JSON.parse(raw) : null;
+      return user?._id || user?.userId || user?.id || null;
+    } catch {
+      return null;
+    }
+  };
 
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82ca9d', '#ffc658'];
 
@@ -18,7 +27,13 @@ const PortfolioPage = () => {
   const fetchPortfolioData = async () => {
     setLoading(true);
     try {
-      const userId = 'user1'; // Default user ID
+      const userId = getCurrentUserId();
+      if (!userId) {
+        setPortfolio([]);
+        setStocks([]);
+        setBalance(0);
+        return;
+      }
       
       const [portfolioResp, stocksResp, balanceResp] = await Promise.all([
         userAPI.getUserPortfolio(userId),
@@ -26,8 +41,10 @@ const PortfolioPage = () => {
         userAPI.getUserBalance(userId)
       ]);
 
-      setPortfolio(portfolioResp.data || []);
-      setStocks(stocksResp.data || []);
+      const holdings = portfolioResp?.data?.stocks || portfolioResp?.data || [];
+      setPortfolio(Array.isArray(holdings) ? holdings : []);
+      const stocksList = stocksResp?.data || stocksResp || [];
+      setStocks(Array.isArray(stocksList) ? stocksList : []);
       setBalance(balanceResp.balance || 0);
     } catch (error) {
       console.error('Error fetching portfolio data:', error);
@@ -40,33 +57,42 @@ const PortfolioPage = () => {
     return stocks.find(stock => stock.symbol === symbol);
   };
 
+  const getHoldingSymbol = (h) => h.stockSymbol || h.symbol;
+  const getHoldingQuantity = (h) => h.quantity ?? h.shares ?? 0;
+  const getHoldingAvgPrice = (h) => h.averagePrice ?? h.avgPrice ?? 0;
+
   const calculatePortfolioValue = () => {
+    if (!Array.isArray(portfolio)) return 0;
     return portfolio.reduce((total, holding) => {
-      const stock = getStockInfo(holding.stockSymbol);
+      const stock = getStockInfo(getHoldingSymbol(holding));
       const currentPrice = stock?.currentPrice || stock?.price || 0;
-      return total + (holding.quantity * currentPrice);
+      return total + (getHoldingQuantity(holding) * currentPrice);
     }, 0);
   };
 
   const calculateTotalProfitLoss = () => {
+    if (!Array.isArray(portfolio)) return 0;
     return portfolio.reduce((total, holding) => {
-      const stock = getStockInfo(holding.stockSymbol);
+      const stock = getStockInfo(getHoldingSymbol(holding));
       const currentPrice = stock?.currentPrice || stock?.price || 0;
-      const profitLoss = calculateProfitLoss(holding.averagePrice || 0, currentPrice, holding.quantity);
+      const profitLoss = calculateProfitLoss(getHoldingAvgPrice(holding), currentPrice, getHoldingQuantity(holding));
       return total + profitLoss;
     }, 0);
   };
 
   const getPortfolioChartData = () => {
+    if (!Array.isArray(portfolio)) return [];
     return portfolio.map(holding => {
-      const stock = getStockInfo(holding.stockSymbol);
+      const symbol = getHoldingSymbol(holding);
+      const qty = getHoldingQuantity(holding);
+      const stock = getStockInfo(symbol);
       const currentPrice = stock?.currentPrice || stock?.price || 0;
-      const value = holding.quantity * currentPrice;
+      const value = qty * currentPrice;
       
       return {
-        name: holding.stockSymbol,
+        name: symbol,
         value,
-        quantity: holding.quantity,
+        quantity: qty,
         price: currentPrice
       };
     });
@@ -221,26 +247,29 @@ const PortfolioPage = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {portfolio.map((holding, index) => {
-                    const stock = getStockInfo(holding.stockSymbol);
+                  {Array.isArray(portfolio) && portfolio.map((holding, index) => {
+                    const symbol = getHoldingSymbol(holding);
+                    const qty = getHoldingQuantity(holding);
+                    const avg = getHoldingAvgPrice(holding);
+                    const stock = getStockInfo(symbol);
                     const currentPrice = stock?.currentPrice || stock?.price || 0;
-                    const marketValue = holding.quantity * currentPrice;
-                    const profitLoss = calculateProfitLoss(holding.averagePrice || 0, currentPrice, holding.quantity);
+                    const marketValue = qty * currentPrice;
+                    const profitLoss = calculateProfitLoss(avg, currentPrice, qty);
                     const allocation = (marketValue / portfolioValue) * 100;
                     
                     return (
                       <tr key={index} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {holding.stockSymbol}
+                          {symbol}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           {stock?.name || 'N/A'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {holding.quantity}
+                          {qty}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {formatCurrency(holding.averagePrice || 0)}
+                          {formatCurrency(avg)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           {formatCurrency(currentPrice)}

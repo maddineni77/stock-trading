@@ -7,8 +7,8 @@ const authenticateToken = async (req, res, next) => {
     const token = req.headers['authorization']?.split(' ')[1];
     if (!token) return res.status(401).json({ success: false, message: 'Unauthorized' });
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(decoded.userId).select('username balance');
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your_jwt_secret_key_change_in_production');
+    const user = await User.findById(decoded.userId).select('username balance userType');
     
     if (!user) {
       return res.status(400).json({ 
@@ -17,7 +17,7 @@ const authenticateToken = async (req, res, next) => {
       });
     }
 
-    req.user = user; // Attach complete user object
+    req.user = { ...user.toObject(), id: user._id }; // Attach complete user object with id
     next();
   } catch (error) {
     res.status(401).json({ success: false, message: 'Invalid token' });
@@ -31,7 +31,7 @@ const optionalAuth = async (req, res, next) => {
     const token = authHeader && authHeader.split(' ')[1];
 
     if (token) {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your_jwt_secret_key');
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your_jwt_secret_key_change_in_production');
       const user = await User.findById(decoded.userId).select('-password');
       if (user) {
         req.user = user;

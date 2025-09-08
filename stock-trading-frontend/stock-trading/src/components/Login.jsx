@@ -50,7 +50,7 @@ const Login = ({ onLogin }) => {
       } else {
         navigate('/');
       }
-    } catch (error) {
+    } catch {
       // For demo purposes, allow demo login
       if (loginData.email === 'demo@user.com' && loginData.password === 'demo123') {
         const demoUser = {
