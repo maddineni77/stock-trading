@@ -22,7 +22,9 @@ const port = process.env.PORT || 5001;
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:5174',
-  'http://localhost:5175'
+  'http://localhost:5175',
+  'https://stock-trading-2.onrender.com',
+
 ];
 const corsOptions = {
   origin: (origin, callback) => {
@@ -76,6 +78,10 @@ mongoose.connection.on('connected', () => console.log('MongoDB connected'));
 mongoose.connection.on('disconnected', () => console.log('MongoDB disconnected'));
 mongoose.connection.on('error', (err) => console.error('MongoDB error:', err));
 
+
+
+
+
 // Core API routes
 app.use("/api/stocks", stockRoutes);
 app.use("/api/users", userRoutes);
@@ -102,6 +108,4 @@ process.on('unhandledRejection', (reason, promise) => {
   console.error('Unhandled Rejection at:', promise, 'reason:', reason);
 });
 // Start server
-app.listen(port, () => {
-  console.log(` Server is running on http://localhost:${port}`);
-});
+module.exports=app
