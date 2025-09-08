@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'https://stock-trading-kcdwsgeoa-maddinenivenkatrao1-8820s-projects.vercel.app/api/'; // Updated to match your backend port
+const API_BASE_URL = 'https://stock-trading-kcdwsgeoa-maddinenivenkatrao1-8820s-projects.vercel.app'; // Updated to match your backend port
 
 // Create axios instance with default config
 const api = axios.create({
