@@ -20,8 +20,8 @@ const port = process.env.PORT || 5001;
 
 // CORS configuration
 const allowedOrigins = [
-  'http://localhost',
-  'http://127.0.0.1',
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
   'https://stock-trading-2.onrender.com', 
   "https://stock-trading-frontend-blond.vercel.app",
 
@@ -66,10 +66,6 @@ const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/stock-tra
 mongoose.connect(mongoURI)
   .then(() => console.log(" MongoDB Connected"))
   .catch((err) => console.error("MongoDB connection error:", err));
-mongoose.connection.on('connected', () => console.log('MongoDB connected'));
-mongoose.connection.on('disconnected', () => console.log('MongoDB disconnected'));
-mongoose.connection.on('error', (err) => console.error('MongoDB error:', err));
-
 
 
 
@@ -90,14 +86,11 @@ app.post('/api/ai/analyze-portfolio', authenticateToken, aiController.analyzePor
 app.get('/api/stocks/realtime/:symbol', authenticateToken, stockController.getRealTimeQuote);
 app.post('/api/stocks/realtime/multiple', authenticateToken, stockController.getMultipleRealTimeQuotes);
 app.get('/api/stocks/search/:keywords', authenticateToken, stockController.searchStocks);
-// Add to your main server file
-process.on('uncaughtException', (error) => {
-  console.error('Uncaught Exception:', error);
-  // Consider graceful shutdown and restart
-});
+
 
 process.on('unhandledRejection', (reason, promise) => {
   console.error('Unhandled Rejection at:', promise, 'reason:', reason);
 });
 // Start server
-module.exports=app
+
+app.listen(port, ()=>{console.log("server  started running " + port)})
