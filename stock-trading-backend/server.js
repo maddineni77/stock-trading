@@ -20,23 +20,15 @@ const port = process.env.PORT || 5001;
 
 // CORS configuration
 const allowedOrigins = [
-  'http://localhost:5173',
-  'http://localhost:5174',
-  'http://localhost:5175',
-  'https://stock-trading-2.onrender.com',
+  'http://localhost',
+  'http://127.0.0.1',
+  'https://stock-trading-2.onrender.com', 
+  "https://stock-trading-frontend-blond.vercel.app",
 
 ];
 const corsOptions = {
-  origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
-    return callback(null, false);
-  },
+  origin: allowedOrigins,
   credentials: true,
-  optionsSuccessStatus: 200,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin']
 };
 
 app.use(cors(corsOptions));
